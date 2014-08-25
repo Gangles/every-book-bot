@@ -26,7 +26,6 @@
     "gm": "^1.16.0",
     "node-rest-client": "^1.0.0",
     "node-twitter": "^0.5.2",
-    "request": "^2.40.0",
-    "twit": "^1.1.15"
+    "request": "^2.40.0"
   }
 }
