@@ -55,6 +55,9 @@ var getBooksURL = "https://www.googleapis.com/books/v1/volumes?q=";
 var subject = "";
 var bookToTweet = {};
 
+var BOOK_COVER = './tmp/cover.jpg';
+var TILE_COVER = './tmp/cover_tiled.jpg';
+
 var recentISBNs = [];
 var recentSubjects = [];
 var MAX_MEMORY = 300;
@@ -75,8 +78,8 @@ function startNewTweet() {
 		while (recentSubjects.length > MAX_MEMORY) recentSubjects.shift();
 	
 		// delete any leftover cover images
-		if(fs.existsSync('tmp/cover.jpg')) fs.unlinkSync('tmp/cover.jpg');
-		if(fs.existsSync('tmp/cover_tiled.jpg')) fs.unlinkSync('tmp/cover_tiled.jpg');
+		if(fs.existsSync(BOOK_COVER)) fs.unlinkSync(BOOK_COVER);
+		if(fs.existsSync(TILE_COVER)) fs.unlinkSync(TILE_COVER);
 	
 		// get a new random subject
 		getSubject();
@@ -237,14 +240,14 @@ function getThumbnailImage(URL) {
 	try {
 		// get the book cover from the URL
 		var image = request(URL);
-		var stream = fs.createWriteStream('tmp/cover.jpg');
+		var stream = fs.createWriteStream(BOOK_COVER);
 		image.pipe(stream);
 		stream.on('close', function() {
 			// tile the book cover 4 times horizontally
-			var test = gm('tmp/cover.jpg');
+			var test = gm(BOOK_COVER);
 			test.resize(null, 220);
-			test.append('tmp/cover.jpg', 'tmp/cover.jpg', 'tmp/cover.jpg', true);
-			test.write('tmp/cover_tiled.jpg', thumbnailCallback);
+			test.append(BOOK_COVER, BOOK_COVER, BOOK_COVER, true);
+			test.write(TILE_COVER, thumbnailCallback);
 		});
 	} catch (e) {
 		console.log("Thumbnail error:", e.toString());
@@ -267,7 +270,7 @@ function prepareTweet() {
 		message += bookToTweet.title + " by " + bookToTweet.author;
 		
 		// make sure the book cover exists
-		if(fs.existsSync('tmp/cover_tiled.jpg')) {
+		if(fs.existsSync(TILE_COVER)) {
 			postTweet(message);
 		} else {
 			throw "Tiled cover image missing.";
@@ -288,7 +291,7 @@ function postTweet(message) {
 		if(DO_TWEET) {
 			twitterRestClient.statusesUpdateWithMedia({
 				'status': message,
-				'media[]': 'tmp/cover_tiled.jpg'
+				'media[]': TILE_COVER
 			}, postCallback);
 		}
 	} catch (e) {
