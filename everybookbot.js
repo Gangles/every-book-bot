@@ -1,4 +1,5 @@
 var fs = require('fs');
+var path = require('path');
 var request = require('request');
 var conf = require('./config.js');
 
@@ -37,7 +38,6 @@ try {
 	blacklist = data.badwords;
 	console.log("Blacklist initialized with " + blacklist.length + " words.")
 } catch (err) {
-	console.error("There was an error opening the blacklist file:");
 	console.log(err);
 	process.exit(1);
 }
@@ -51,12 +51,21 @@ var getNounsURL = "http://api.wordnik.com/v4/words.json/randomWords?"
 // google books API information
 var getBooksURL = "https://www.googleapis.com/books/v1/volumes?q=";
 
+// make sure the temp folder exists
+try {
+	var temp_dir = path.join(process.cwd(), 'tmp/');
+	if (!fs.existsSync(temp_dir)) fs.mkdirSync(temp_dir);
+} catch (err) {
+	console.log(err);
+	process.exit(1);
+}
+
 // global bot variables
 var subject = "";
 var bookToTweet = {};
 
-var BOOK_COVER = './tmp/cover.jpg';
-var TILE_COVER = './tmp/cover_tiled.jpg';
+var BOOK_COVER = path.join(process.cwd(), '/tmp/cover.jpg');
+var TILE_COVER = path.join(process.cwd(), '/tmp/cover_tiled.jpg');
 
 var recentISBNs = [];
 var recentSubjects = [];
@@ -138,8 +147,9 @@ function booksCallback(data) {
 		var books = JSON.parse(data);
 		console.log( books.totalItems + " found on subject " + subject );
 		if(books.totalItems > 0) {
-			for (var i = 0; i < books.items.length; i++) {
-				parseBook(books.items[i].volumeInfo);
+			var booklist = shuffle(books.items);
+			for (var i = 0; i < booklist.length; i++) {
+				parseBook(booklist[i].volumeInfo);
 				if(bookToTweet.hasOwnProperty('title')) break;
 			}
 		}
@@ -317,6 +327,23 @@ function contains(array, obj) {
 		}
 	}
 	return false;
+}
+
+function shuffle(array) {
+	// randomly shuffle the given array
+	var current = array.length,
+		tempValue, rIndex;
+	while (0 !== current) {
+		// choose a random element
+		rIndex = Math.floor(Math.random() * current);
+		current -= 1;
+
+		// swap with current
+		tempValue = array[current];
+		array[current] = array[rIndex];
+		array[rIndex] = tempValue;
+	}
+	return array;
 }
 
 function isOffensive(text) {
