@@ -1,0 +1,32 @@
+{
+  "name": "everybookbot",
+  "version": "0.0.0",
+  "description": "Finding and tweeting every book from Google Books (by subject).",
+  "main": "everybookbot.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Gangles/every-book-bot"
+  },
+  "keywords": [
+    "twitter",
+    "bot",
+    "language",
+    "books"
+  ],
+  "author": "Matthew Gallant",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Gangles/every-book-bot/issues"
+  },
+  "homepage": "https://github.com/Gangles/every-book-bot",
+  "dependencies": {
+    "gm": "^1.16.0",
+    "node-rest-client": "^1.0.0",
+    "node-twitter": "^0.5.2",
+    "request": "^2.40.0",
+    "twit": "^1.1.15"
+  }
+}
