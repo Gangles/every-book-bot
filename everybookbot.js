@@ -134,7 +134,7 @@ function getBooks(subject) {
 	try {
 		// ask google for some books on the given subject
 		var URL = getBooksURL + "subject:" + subject;
-		URL += "&langRestrict=en&maxResults=30&key=" + conf.google_key;
+		URL += "&langRestrict=en&maxResults=40&key=" + conf.google_key;
 		googleClient.get(URL, booksCallback, "json");
 	} catch (e) {
 		console.log("Google request error:", e.toString());
