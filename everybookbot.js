@@ -176,10 +176,11 @@ function parseBook(book) {
 		
 		var title = parseTitle(book);
 		if( title.length < 3 || title.length > 50) return false;
-	
+		if( isOffensive(title) ) return false;
+		
 		var author = parseAuthors(book);
 		if( author.length < 3 || author.length > 34) return false;
-	
+		
 		var isbn = parseISBN(book);
 		var thumbnail = parseThumbnail(book);
 		if( isbn.length < 13 || thumbnail.length < 3) return false;
