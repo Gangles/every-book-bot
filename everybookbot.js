@@ -12,10 +12,14 @@ var twitterRestClient = new Twitter.RestClient(
 	conf.access_token_secret
 );
 
+// postgres database to track books we've already tweeted
+var pg = require('pg.js');
+var client = new pg.Client(process.env.DATABASE_URL);
+
 // image manipulation: https://github.com/aheckmann/gm
 var gm = require('gm').subClass({ imageMagick: true });
 
-// import rest client: https://github.com/aacerox/node-rest-client
+// rest client: https://github.com/aacerox/node-rest-client
 var Client = require('node-rest-client').Client;
 var restClient = new Client();
 
@@ -44,7 +48,7 @@ try {
 
 // wordnik API information
 var getNounsURL = "http://api.wordnik.com/v4/words.json/randomWords?"
-+ "minCorpusCount=4000&minDictionaryCount=20&hasDictionaryDef=true&" +
++ "minCorpusCount=3000&minDictionaryCount=15&hasDictionaryDef=true&" +
 + "excludePartOfSpeech=proper-noun-posessive,suffix,family-name,idiom,affix&"
 + "includePartOfSpeech=noun,proper-noun&limit=1&maxLength=12&api_key=" + conf.wordnik_key;
 
@@ -62,6 +66,7 @@ try {
 
 // global bot variables
 var subject = "";
+var bookList = {};
 var bookToTweet = {};
 
 var BOOK_COVER = path.join(process.cwd(), '/tmp/cover.jpg');
@@ -72,13 +77,33 @@ var recentSubjects = [];
 var MAX_MEMORY = 300;
 
 var attempts = 0;
-var MAX_ATTEMPTS = 30;
+var MAX_ATTEMPTS = 35;
 var DO_TWEET = true;
+
+var DB_CREATE = 'CREATE TABLE IF NOT EXISTS books (isbn char(13) NOT NULL)';
+var DB_QUERY = 'SELECT * FROM books WHERE isbn=$1';
+var DB_INSERT = 'INSERT INTO books(isbn) VALUES ($1)';
+
+function waitToBegin() {
+	// database is initialized, schedule tweet on the hour
+	var d = new Date();
+	var timeout = 60 - d.getSeconds();
+	timeout += (60 - d.getMinutes() - 1) * 60;
+	setTimeout(beginTweeting, timeout * 1000);
+	console.log("Wait " + timeout + " for first tweet.");
+}
+
+function beginTweeting() {
+	// post a tweet, repeat every 60 minutes
+	startNewTweet();
+	setInterval(startNewTweet, 1000 * 60 * 60);
+}
 
 function startNewTweet() {
 	try {
 		// reset global variables
 		subject = "";
+		bookList = {};
 		bookToTweet = {};
 		attempts = 0;
 		
@@ -144,34 +169,45 @@ function getBooks(subject) {
 function booksCallback(data) {
 	try {
 		// iterate through given books to find an appropriate one
-		var books = JSON.parse(data);
-		console.log( books.totalItems + " found on subject " + subject );
-		if(books.totalItems > 0) {
-			var booklist = shuffle(books.items);
-			for (var i = 0; i < booklist.length; i++) {
-				parseBook(booklist[i].volumeInfo);
-				if(bookToTweet.hasOwnProperty('title')) break;
-			}
-		}
-		
-		if(bookToTweet.hasOwnProperty('title')) {
-			// appropriate book found, get the thumbnail
-			getThumbnailImage(bookToTweet.thumbnail);
-		} else if (attempts < MAX_ATTEMPTS) {
-			// failed to find an appropriate book, choose new subject
-			++ attempts;
-			getSubject();
-		} else {
-			console.log("Failed to find a book after " + MAX_ATTEMPTS + "attempts.");
-		}
+		bookList = JSON.parse(data);
+		console.log( bookList.totalItems + " found on subject " + subject );
+		parseAllBooks();
 	} catch (e) {
 		console.log("Google callback error:", e.toString());
 	}
 }
 
+function parseAllBooks() {
+	try {
+		// check each book to find a suitable one
+		bookToTweet = {};
+		if(bookList.totalItems > 0) {
+			var shuffled = shuffle(bookList.items);
+			for (var i = 0; i < shuffled.length; i++) {
+				parseBook(shuffled[i].volumeInfo);
+				if(bookToTweet.hasOwnProperty('title')) break;
+			}
+		}
+		
+		if(bookToTweet.hasOwnProperty('title')) {
+			// candidate book found, check if we've tweeted it before
+			queryBookDB(bookToTweet);
+		} else if (attempts < MAX_ATTEMPTS) {
+			// failed to find an appropriate book, choose new subject
+			++ attempts;
+			getSubject();
+		} else {
+			// too many attempts, give up for now
+			console.log("Failed to find a book after " + MAX_ATTEMPTS + "attempts.");
+		}
+	} catch (e) {
+		console.log("Book list parsing error:", e.toString());
+	}
+}
+
 function parseBook(book) {
 	try {
-		// exit early if a book is already founds
+		// exit early if a book is already found
 		if(bookToTweet.hasOwnProperty('title')) return false;
 		
 		var title = parseTitle(book);
@@ -290,6 +326,7 @@ function prepareTweet() {
 		// avoid reusing these values
 		recentISBNs.push( bookToTweet.isbn );
 		recentSubjects.push( subject );
+		insertBookDB( bookToTweet );
 	} catch (e) {
 		console.log("Tweet assembly error:", e.toString());
 	}
@@ -320,6 +357,57 @@ function postCallback(error, result) {
 	}
 }
 
+function initDB() {
+	try {
+		// connect to postgres db
+		client.connect(function(err) {
+			// connected, make sure table exists
+			if (err) return console.log('DB init error:', err);
+			client.query(DB_CREATE, function(err) {
+				// table exists, start tweeting
+				if (err) return console.log('DB init error:', err);
+				console.log("Database initialized.");
+				waitToBegin();
+			});
+		});
+	} catch (e) {
+		console.log("DB init error:", e.toString());
+	}
+}
+
+function queryBookDB(book) {
+	try {
+		// check if the given book's ISBN exists in the database
+		client.query(DB_QUERY, [book.isbn], function(err, result) {
+			if (err) {
+				return console.error('DB query error:', err);
+			} else if (result.rows.length > 0) {
+				// we've tweeted this book in the past
+				console.log(book.title + " has already been tweeted");
+				recentISBNs.push(book.isbn);
+				parseAllBooks(); // restart
+			} else {
+				// book has never been tweeted before, proceed
+				console.log(book.title + " has never been tweeted");
+				getThumbnailImage(book.thumbnail);
+			}
+		});
+	} catch (e) {
+		console.log("DB query error:", e.toString());
+	}
+}
+
+function insertBookDB(book) {
+	try {
+		// add the given book's ISBN to the database
+		client.query(DB_INSERT, [book.isbn], function(err, result) {
+			if (err) return console.error('DB insert error:', err);
+		});
+	} catch (e) {
+		console.log("DB insert error:", e.toString());
+	}
+}
+
 function contains(array, obj) {
 	// convenience function
 	for (var i = 0; i < array.length; i++) {
@@ -330,8 +418,16 @@ function contains(array, obj) {
 	return false;
 }
 
+function randomSeed() {
+	// some deployments don't seed random numbers well
+	var d = new Date();
+	var s = d.getDate() + d.getHours() + d.getMilliseconds();
+	for(var i = s % 30; i < 30 ; i++) Math.random();
+}
+
 function shuffle(array) {
 	// randomly shuffle the given array
+	randomSeed();
 	var current = array.length,
 		tempValue, rIndex;
 	while (0 !== current) {
@@ -358,8 +454,5 @@ function isOffensive(text) {
 	return false;
 }
 
-// post a tweet as soon as we run the program
-startNewTweet();
-
-// post again every 60 minutes
-setInterval(startNewTweet, 1000 * 60 * 60);
+// start the application by initializing the db connection
+initDB();
