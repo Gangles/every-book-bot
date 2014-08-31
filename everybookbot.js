@@ -77,6 +77,8 @@ var recentSubjects = [];
 var MAX_MEMORY = 300;
 
 var attempts = 0;
+var randomIndex = false;
+var MAX_RESULTS = 40;
 var MAX_ATTEMPTS = 35;
 var DO_TWEET = true;
 
@@ -106,6 +108,7 @@ function startNewTweet() {
 		bookList = {};
 		bookToTweet = {};
 		attempts = 0;
+		randomIndex = false;
 		
 		// limit how long before books/subjects can be reused
 		while (recentISBNs.length > MAX_MEMORY) recentISBNs.shift();
@@ -148,18 +151,20 @@ function subjectCallback(data) {
 		} else {
 			// get books for this subject
 			console.log("Look up books for: " + subject);
-			getBooks(subject);
+			getBooks(subject, 0);
 		}
 	} catch (e) {
 		console.log("Wordnik callback error:", e.toString());
 	}
 }
 
-function getBooks(subject) {
+function getBooks(subject, index) {
 	try {
 		// ask google for some books on the given subject
+		++ attempts;
 		var URL = getBooksURL + "subject:" + subject;
-		URL += "&langRestrict=en&maxResults=40&key=" + conf.google_key;
+		URL += "&langRestrict=en&maxResults=" + MAX_RESULTS;
+		URL += "&startIndex=" + index + "&key=" + conf.google_key;
 		googleClient.get(URL, booksCallback, "json");
 	} catch (e) {
 		console.log("Google request error:", e.toString());
@@ -168,10 +173,21 @@ function getBooks(subject) {
 
 function booksCallback(data) {
 	try {
-		// iterate through given books to find an appropriate one
+		// extract the book list from google
 		bookList = JSON.parse(data);
 		console.log( bookList.totalItems + " found on subject " + subject );
-		parseAllBooks();
+		
+		if(bookList.totalItems > MAX_RESULTS && !randomIndex) {
+			// we have too many results, pick a random starting index
+			randomIndex = true;
+			var i = randomRange(0, bookList.totalItems - MAX_RESULTS + 1);
+			console.log("Start search at index " + i);
+			return getBooks(subject, i);
+		} else {
+			// proceed with the given book list
+			randomIndex = false;
+			return parseAllBooks();
+		}
 	} catch (e) {
 		console.log("Google callback error:", e.toString());
 	}
@@ -191,14 +207,13 @@ function parseAllBooks() {
 		
 		if(bookToTweet.hasOwnProperty('title')) {
 			// candidate book found, check if we've tweeted it before
-			queryBookDB(bookToTweet);
+			return queryBookDB(bookToTweet);
 		} else if (attempts < MAX_ATTEMPTS) {
 			// failed to find an appropriate book, choose new subject
-			++ attempts;
-			getSubject();
+			return getSubject();
 		} else {
 			// too many attempts, give up for now
-			console.log("Failed to find a book after " + MAX_ATTEMPTS + "attempts.");
+			console.log("Failed to find a book after " + MAX_ATTEMPTS + " attempts.");
 		}
 	} catch (e) {
 		console.log("Book list parsing error:", e.toString());
@@ -418,16 +433,22 @@ function contains(array, obj) {
 	return false;
 }
 
-function randomSeed() {
+function randomSeeded() {
 	// some deployments don't seed random numbers well
 	var d = new Date();
 	var s = d.getDate() + d.getHours() + d.getMilliseconds();
 	for(var i = s % 30; i < 30 ; i++) Math.random();
+	return Math.random();
+}
+
+function randomRange(min, max) {
+	// random number between min (included) & max (excluded)
+	return Math.floor(randomSeeded() * (max - min)) + min;
 }
 
 function shuffle(array) {
 	// randomly shuffle the given array
-	randomSeed();
+	randomSeeded();
 	var current = array.length,
 		tempValue, rIndex;
 	while (0 !== current) {
