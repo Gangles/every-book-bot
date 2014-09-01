@@ -180,7 +180,8 @@ function booksCallback(data) {
 		if(bookList.totalItems > MAX_RESULTS && !randomIndex) {
 			// we have too many results, pick a random starting index
 			randomIndex = true;
-			var i = randomRange(0, bookList.totalItems - MAX_RESULTS + 1);
+			var max = Math.min(bookList.totalItems - MAX_RESULTS, 500);
+			var i = randomRange(0, max);
 			console.log("Start search at index " + i);
 			return getBooks(subject, i);
 		} else {
@@ -197,7 +198,7 @@ function parseAllBooks() {
 	try {
 		// check each book to find a suitable one
 		bookToTweet = {};
-		if(bookList.totalItems > 0) {
+		if(bookList.totalItems > 0 && bookList.hasOwnProperty('items')) {
 			var shuffled = shuffle(bookList.items);
 			for (var i = 0; i < shuffled.length; i++) {
 				parseBook(shuffled[i].volumeInfo);
