@@ -18,6 +18,7 @@ var client = new pg.Client(process.env.DATABASE_URL);
 
 // image manipulation: https://github.com/aheckmann/gm
 var gm = require('gm').subClass({ imageMagick: true });
+var sizeOf = require('image-size');
 
 // rest client: https://github.com/aacerox/node-rest-client
 var Client = require('node-rest-client').Client;
@@ -50,7 +51,7 @@ try {
 var getNounsURL = "http://api.wordnik.com/v4/words.json/randomWords?"
 + "minCorpusCount=3000&minDictionaryCount=15&hasDictionaryDef=true&" +
 + "excludePartOfSpeech=proper-noun-posessive,suffix,family-name,idiom,affix&"
-+ "includePartOfSpeech=noun,proper-noun&limit=1&maxLength=12&api_key=" + conf.wordnik_key;
++ "includePartOfSpeech=noun,proper-noun&limit=10&maxLength=12&api_key=" + conf.wordnik_key;
 
 // google books API information
 var getBooksURL = "https://www.googleapis.com/books/v1/volumes?q=";
@@ -66,6 +67,7 @@ try {
 
 // global bot variables
 var subject = "";
+var subjects = [];
 var bookList = {};
 var bookToTweet = {};
 
@@ -91,8 +93,8 @@ function waitToBegin() {
 	var d = new Date();
 	var timeout = 60 - d.getSeconds();
 	timeout += (60 - d.getMinutes() - 1) * 60;
-	setTimeout(beginTweeting, timeout * 1000);
 	console.log("Wait " + timeout + " for first tweet.");
+	setTimeout(beginTweeting, timeout * 1000);
 }
 
 function beginTweeting() {
@@ -119,16 +121,24 @@ function startNewTweet() {
 		if(fs.existsSync(TILE_COVER)) fs.unlinkSync(TILE_COVER);
 	
 		// get a new random subject
-		getSubject();
+		getNewSubject();
 	} catch (e) {
 		console.log("Initial setup error:", e.toString());
 	}
 }
 
-function getSubject() {
+function getNewSubject() {
 	try {
-		// ask wordnik for a random word
-		restClient.get(getNounsURL, subjectCallback, "json");
+		// pop the most recently used subject
+		if (subjects.length > 0) subjects.shift();
+		
+		if (subjects.length > 0) {
+			// use a locally cached subject
+			chooseSubject();
+		} else {
+			// ask wordnik for random words
+			restClient.get(getNounsURL, subjectCallback, "json");
+		}
 	} catch (e) {
 		console.log("Wordnik request error:", e.toString());
 	}
@@ -136,25 +146,37 @@ function getSubject() {
 
 function subjectCallback(data) {
 	try {
-		// use this random word as a subject
+		// add all the new words to the local cache
 		var words = JSON.parse(data);
-		subject = words[0].word;
+		for (var i = 0; i < words.length; i++) {
+			subjects.push(words[i].word);
+		}
+		chooseSubject();
+	} catch (e) {
+		console.log("Wordnik callback error:", e.toString());
+	}
+}
+
+function chooseSubject() {
+	try {
+		if (subjects.length < 1) throw "Subject list should not be empty.";
+		subject = subjects[0];
 		
-		if(contains(recentSubjects, subject)) {
+		if (contains(recentSubjects, subject)) {
 			// we've used this subject recently
 			console.log(subject + " used recently, get new subject.")
-			getSubject();
-		} else if(isOffensive(subject)) {
+			getNewSubject();
+		} else if (isOffensive(subject)) {
 			// bad word filter found a match
 			console.log(subject + " is offensive, get new subject.")
-			getSubject();
+			getNewSubject();
 		} else {
 			// get books for this subject
 			console.log("Look up books for: " + subject);
 			getBooks(subject, 0);
 		}
 	} catch (e) {
-		console.log("Wordnik callback error:", e.toString());
+		console.log("Subject error:", e.toString());
 	}
 }
 
@@ -211,7 +233,7 @@ function parseAllBooks() {
 			return queryBookDB(bookToTweet);
 		} else if (attempts < MAX_ATTEMPTS) {
 			// failed to find an appropriate book, choose new subject
-			return getSubject();
+			return getNewSubject();
 		} else {
 			// too many attempts, give up for now
 			console.log("Failed to find a book after " + MAX_ATTEMPTS + " attempts.");
@@ -306,10 +328,22 @@ function getThumbnailImage(URL) {
 		var stream = fs.createWriteStream(BOOK_COVER);
 		image.pipe(stream);
 		stream.on('close', function() {
+			// get the size of the image
+			var size = sizeOf(BOOK_COVER);
+			if (size.height <= 0) throw "Image height error";
+			if (size.width <= 0) throw "Image width error";
+			
 			// tile the book cover 4 times horizontally
 			var test = gm(BOOK_COVER);
-			test.resize(null, 220);
-			test.append(BOOK_COVER, BOOK_COVER, BOOK_COVER, true);
+			var scale = 220 / size.height;
+			test.resize(size.width * scale, size.height * scale, "!");
+			
+			// tile the cover horizontally if needed
+			tile = Math.ceil((size.height * 2.25) / size.width) - 1;
+			for (var i = 0; i < tile ; ++i) {
+				test.append(BOOK_COVER, true);
+			}
+			test.noProfile();
 			test.write(TILE_COVER, thumbnailCallback);
 		});
 	} catch (e) {

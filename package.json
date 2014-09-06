@@ -24,6 +24,7 @@
   "homepage": "https://github.com/Gangles/every-book-bot",
   "dependencies": {
     "gm": "^1.16.0",
+    "image-size": "^0.3.2",
     "node-rest-client": "^1.0.0",
     "node-twitter": "^0.5.2",
     "pg.js": "^3.4.2",
