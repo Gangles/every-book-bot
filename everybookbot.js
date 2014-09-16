@@ -51,7 +51,7 @@ try {
 var getNounsURL = "http://api.wordnik.com/v4/words.json/randomWords?"
 + "minCorpusCount=3000&minDictionaryCount=15&hasDictionaryDef=true&" +
 + "excludePartOfSpeech=proper-noun-posessive,suffix,family-name,idiom,affix&"
-+ "includePartOfSpeech=noun,proper-noun&limit=10&maxLength=12&api_key=" + conf.wordnik_key;
++ "includePartOfSpeech=noun,proper-noun&limit=10&maxLength=11&api_key=" + conf.wordnik_key;
 
 // google books API information
 var getBooksURL = "https://www.googleapis.com/books/v1/volumes?q=";
@@ -249,22 +249,33 @@ function parseBook(book) {
 		if(bookToTweet.hasOwnProperty('title')) return false;
 		
 		var title = parseTitle(book);
-		if( title.length < 3 || title.length > 50) return false;
-		if( isOffensive(title) ) return false;
+		if (title.length < 3 || title.length > 48) return false;
+		if (isOffensive(title) ) return false;
 		
 		var author = parseAuthors(book);
-		if( author.length < 3 || author.length > 34) return false;
+		if (author.length < 3 || author.length > 30) return false;
+		
+		var year = parseYear(book);
+		if (year.length !== 4 ) return false;
+		if (!/\d{4}/.test(year)) return false;
 		
 		var isbn = parseISBN(book);
 		var thumbnail = parseThumbnail(book);
-		if( isbn.length < 13 || thumbnail.length < 3) return false;
-		if( contains(recentISBNs, isbn) ) return false;
+		if (isbn.length < 13 || thumbnail.length < 3) return false;
+		if (contains(recentISBNs, isbn)) return false;
 		
 		console.log( ">> " + title + " by " + author);
+		console.log( ">> " + "Published " + year);
 		console.log( ">> " + "ISBN " + isbn );
 		console.log( ">> " + "Thumbnail: " + thumbnail);
 		
-		bookToTweet = { title: title, author: author, isbn: isbn, thumbnail: thumbnail};
+		bookToTweet = {
+			title: title,
+			author: author,
+			year: year,
+			isbn: isbn,
+			thumbnail: thumbnail
+		};
 		return true;
 	} catch (e) {
 		console.log("Book parsing error:", e.toString());
@@ -273,11 +284,10 @@ function parseBook(book) {
 
 function parseTitle(book) {
 	// ensure the book has a title
-	if(book.hasOwnProperty('title')){
+	if (book.hasOwnProperty('title')) {
 		return book.title;
-	} else {
-		return "";
 	}
+	return "";
 }
 
 function parseAuthors(book) {
@@ -297,6 +307,14 @@ function parseAuthors(book) {
 	}
 }
 
+function parseYear(book) {
+	// extract the year published
+	if (book.hasOwnProperty('publishedDate')) {
+		return book.publishedDate.substring(0, 4);
+	}
+	return "";
+}
+
 function parseISBN(book) {
 	// find the book's ISBN, if present
 	if (book.hasOwnProperty('industryIdentifiers')) {
@@ -305,10 +323,8 @@ function parseISBN(book) {
 				return book.industryIdentifiers[i].identifier;
 			}
 		}
-		return "";
-	} else {
-		return "";
 	}
+	return "";
 }
 
 function parseThumbnail(book) {
@@ -365,6 +381,7 @@ function prepareTweet() {
 		// assemble the tweet
 		var message = "A book about " + subject + ": ";
 		message += bookToTweet.title + " by " + bookToTweet.author;
+		message += " (" + bookToTweet.year + ")";
 		
 		// make sure the book cover exists
 		if(fs.existsSync(TILE_COVER)) {
