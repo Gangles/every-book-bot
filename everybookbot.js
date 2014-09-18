@@ -51,7 +51,7 @@ try {
 var getNounsURL = "http://api.wordnik.com/v4/words.json/randomWords?"
 + "minCorpusCount=3000&minDictionaryCount=15&hasDictionaryDef=true&" +
 + "excludePartOfSpeech=proper-noun-posessive,suffix,family-name,idiom,affix&"
-+ "includePartOfSpeech=noun,proper-noun&limit=10&maxLength=11&api_key=" + conf.wordnik_key;
++ "includePartOfSpeech=noun,proper-noun&limit=10&maxLength=12&api_key=" + conf.wordnik_key;
 
 // google books API information
 var getBooksURL = "https://www.googleapis.com/books/v1/volumes?q=";
@@ -249,15 +249,15 @@ function parseBook(book) {
 		if(bookToTweet.hasOwnProperty('title')) return false;
 		
 		var title = parseTitle(book);
-		if (title.length < 3 || title.length > 48) return false;
-		if (isOffensive(title) ) return false;
+		if (title.length < 3 || isOffensive(title)) return false;
 		
 		var author = parseAuthors(book);
-		if (author.length < 3 || author.length > 30) return false;
+		if (author.length < 3) return false;
+		
+		if (subject.length + title.length + author.length > 90) return false;
 		
 		var year = parseYear(book);
-		if (year.length !== 4 ) return false;
-		if (!/\d{4}/.test(year)) return false;
+		if (year.length !== 4 || !/\d{4}/.test(year)) return false;
 		
 		var isbn = parseISBN(book);
 		var thumbnail = parseThumbnail(book);
