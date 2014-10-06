@@ -259,6 +259,7 @@ function parseBook(book) {
 		
 		var year = parseYear(book);
 		if (year.length !== 4 || !/\d{4}/.test(year)) return false;
+		if (parseInt(year) > new Date().getFullYear()) return false;
 		
 		var isbn = parseISBN(book);
 		var thumbnail = parseThumbnail(book);
