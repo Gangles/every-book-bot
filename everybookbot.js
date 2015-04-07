@@ -89,18 +89,25 @@ var DB_QUERY = 'SELECT * FROM books WHERE isbn=$1';
 var DB_INSERT = 'INSERT INTO books(isbn) VALUES ($1)';
 
 function waitToBegin() {
-	// database is initialized, schedule tweet on the hour
+	// database is initialized, schedule tweet at :30 every 2 hours
 	var d = new Date();
 	var timeout = 60 - d.getSeconds();
-	timeout += (60 - d.getMinutes() - 1) * 60;
+	if (d.getHours() % 2 == 1)
+		if (d.getMinutes() < 30)
+			timeout += (30 - 1 - d.getMinutes()) * 60;
+		else
+			timeout += (150 - 1 - d.getMinutes()) * 60;
+	else
+		timeout += (90 - 1 - d.getMinutes()) * 60;
+	if (!DO_TWEET) timeout = 1; // debugging
 	console.log("Wait " + timeout + " for first tweet.");
 	setTimeout(beginTweeting, timeout * 1000);
 }
 
 function beginTweeting() {
-	// post a tweet, repeat every 60 minutes
+	// post a tweet, repeat every 2 hours
 	startNewTweet();
-	setInterval(startNewTweet, 1000 * 60 * 60);
+	setInterval(startNewTweet, 1000 * 60 * 60 * 2);
 }
 
 function startNewTweet() {
