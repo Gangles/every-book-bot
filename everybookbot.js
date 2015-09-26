@@ -71,6 +71,9 @@ var subjects = [];
 var bookList = {};
 var bookToTweet = {};
 
+var postTweetDone = false;
+var dbInsertDone = false;
+
 var BOOK_COVER = path.join(process.cwd(), '/tmp/cover.jpg');
 var TILE_COVER = path.join(process.cwd(), '/tmp/cover_tiled.jpg');
 
@@ -411,7 +414,7 @@ function postTweet(message) {
 	try {
 		// post a new status to the twitter API
 		console.log("Posting tweet:", message);
-		if(DO_TWEET) {
+		if(DO_TWEET && !postTweetDone) {
 			twitterRestClient.statusesUpdateWithMedia({
 				'status': message,
 				'media[]': TILE_COVER
@@ -426,6 +429,8 @@ function postCallback(error, result) {
 	// twitter API callback from posting tweet
 	if (!error) {
 		console.log("Post tweet success!");
+		postTweetDone = true;
+		if (dbInsertDone) process.exit(0);
 	}
 	else {
 		console.log("Post tweet error:", error);
@@ -477,6 +482,9 @@ function insertBookDB(book) {
 		// add the given book's ISBN to the database
 		client.query(DB_INSERT, [book.isbn], function(err, result) {
 			if (err) return console.error('DB insert error:', err);
+			console.log("Book successfully added to database.");
+			dbInsertDone = true;
+			if (postTweetDone) process.exit(0);
 		});
 	} catch (e) {
 		console.log("DB insert error:", e.toString());
