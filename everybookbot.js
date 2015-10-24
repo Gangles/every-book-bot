@@ -71,6 +71,7 @@ var subjects = [];
 var bookList = {};
 var bookToTweet = {};
 
+var postingTweet = false;
 var postTweetDone = false;
 var dbInsertDone = false;
 
@@ -106,8 +107,9 @@ function waitToBegin() {
 
 	// heroku scheduler runs every 10 minutes
 	console.log("Wait " + timeout + " seconds for next tweet");
-	if (timeout < 10 * 60)
+	if (timeout < 590) {
 		setTimeout(startNewTweet, timeout * 1000);
+	}
 	else
 		process.exit(0);
 }
@@ -414,7 +416,8 @@ function postTweet(message) {
 	try {
 		// post a new status to the twitter API
 		console.log("Posting tweet:", message);
-		if(DO_TWEET && !postTweetDone) {
+		if(DO_TWEET && !postingTweet) {
+			postingTweet = true;
 			twitterRestClient.statusesUpdateWithMedia({
 				'status': message,
 				'media[]': TILE_COVER
