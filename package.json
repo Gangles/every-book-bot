@@ -28,7 +28,7 @@
   "dependencies": {
     "gm": "^1.16.0",
     "image-size": "^0.3.2",
-    "node-rest-client": "^1.0.0",
+    "node-rest-client": "^3.1.0",
     "node-twitter": "^0.5.2",
     "pg.js": "^3.4.2",
     "request": "^2.40.0"
