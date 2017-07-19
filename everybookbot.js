@@ -158,6 +158,8 @@ function getNewSubject() {
 function subjectCallback(data, response) {
 	try {
 		// add all the new words to the local cache
+		console.log(response);
+		console.log(JSON.stringify(data));
 		var words = JSON.parse(response);
 		for (var i = 0; i < words.length; i++) {
 			subjects.push(words[i].word);
