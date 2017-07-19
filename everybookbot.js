@@ -148,19 +148,17 @@ function getNewSubject() {
 			chooseSubject();
 		} else {
 			// ask wordnik for random words
-			restClient.get(getNounsURL, subjectCallback);
+			request(getNounsURL, subjectCallback);
 		}
 	} catch (e) {
 		console.log("Wordnik request error:", e.toString());
 	}
 }
 
-function subjectCallback(data, response) {
+function subjectCallback (err, resp, body) {
 	try {
 		// add all the new words to the local cache
-		console.log(response);
-		console.log(JSON.stringify(data));
-		var words = JSON.parse(response);
+		var words = JSON.parse(body);
 		for (var i = 0; i < words.length; i++) {
 			subjects.push(words[i].word);
 		}
