@@ -195,19 +195,20 @@ function getBooks(subject, index) {
 	try {
 		// ask google for some books on the given subject
 		++ attempts;
+		var args = {headers: { "Content-Type": "application/json"}};
 		var URL = getBooksURL + "subject:" + subject;
 		URL += "&langRestrict=en&maxResults=" + MAX_RESULTS;
 		URL += "&startIndex=" + index + "&key=" + conf.google_key;
-		googleClient.get(URL, booksCallback, "json");
+		googleClient.get(URL, args, booksCallback);
 	} catch (e) {
 		console.log("Google request error:", e.toString());
 	}
 }
 
-function booksCallback(data) {
+function booksCallback(data, response) {
 	try {
 		// extract the book list from google
-		bookList = JSON.parse(data);
+		bookList = data;
 		console.log( bookList.totalItems + " found on subject " + subject );
 		
 		if(bookList.totalItems > MAX_RESULTS && !randomIndex) {
