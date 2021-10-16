@@ -14,7 +14,10 @@ var twitterRestClient = new Twitter.RestClient(
 
 // postgres database to track books we've already tweeted
 var pg = require('pg.js');
-var client = new pg.Client(process.env.DATABASE_URL);
+var client = new pg.Client({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
 
 // image manipulation: https://github.com/aheckmann/gm
 var gm = require('gm').subClass({ imageMagick: true });
