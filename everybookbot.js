@@ -12,13 +12,6 @@ var twitterRestClient = new Twitter.RestClient(
 	conf.access_token_secret
 );
 
-// postgres database to track books we've already tweeted
-var pg = require('pg.js');
-var client = new pg.Client({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
-
 // image manipulation: https://github.com/aheckmann/gm
 var gm = require('gm').subClass({ imageMagick: true });
 var sizeOf = require('image-size');
@@ -76,7 +69,6 @@ var bookToTweet = {};
 
 var postingTweet = false;
 var postTweetDone = false;
-var dbInsertDone = false;
 
 var BOOK_COVER = path.join(process.cwd(), '/tmp/cover.jpg');
 var TILE_COVER = path.join(process.cwd(), '/tmp/cover_tiled.jpg');
@@ -91,12 +83,8 @@ var MAX_RESULTS = 40;
 var MAX_ATTEMPTS = 35;
 var DO_TWEET = true;
 
-var DB_CREATE = 'CREATE TABLE IF NOT EXISTS books (isbn char(13) NOT NULL)';
-var DB_QUERY = 'SELECT * FROM books WHERE isbn=$1';
-var DB_INSERT = 'INSERT INTO books(isbn) VALUES ($1)';
-
 function waitToBegin() {
-	// database is initialized, schedule tweet at :30 every 2 hours
+	// schedule tweet at :30 every 2 hours
 	var d = new Date();
 	var timeout = 60 - d.getSeconds();
 	if (d.getHours() % 2 == 1)
@@ -244,8 +232,8 @@ function parseAllBooks() {
 		}
 		
 		if(bookToTweet.hasOwnProperty('title')) {
-			// candidate book found, check if we've tweeted it before
-			return queryBookDB(bookToTweet);
+			// book found
+			return getThumbnailImage(bookToTweet.thumbnail);
 		} else if (attempts < MAX_ATTEMPTS) {
 			// failed to find an appropriate book, choose new subject
 			return getNewSubject();
@@ -410,7 +398,7 @@ function prepareTweet() {
 		// avoid reusing these values
 		recentISBNs.push( bookToTweet.isbn );
 		recentSubjects.push( subject );
-		insertBookDB( bookToTweet );
+		process.exit(0);
 	} catch (e) {
 		console.log("Tweet assembly error:", e.toString());
 	}
@@ -437,64 +425,10 @@ function postCallback(error, result) {
 	if (!error) {
 		console.log("Post tweet success!");
 		postTweetDone = true;
-		if (dbInsertDone) process.exit(0);
+		process.exit(0);
 	}
 	else {
 		console.log("Post tweet error:", error);
-	}
-}
-
-function initDB() {
-	try {
-		// connect to postgres db
-		client.connect(function(err) {
-			// connected, make sure table exists
-			if (err) return console.log('DB init error:', err);
-			client.query(DB_CREATE, function(err) {
-				// table exists, start tweeting
-				if (err) return console.log('DB init error:', err);
-				console.log("Database initialized.");
-				waitToBegin();
-			});
-		});
-	} catch (e) {
-		console.log("DB init error:", e.toString());
-	}
-}
-
-function queryBookDB(book) {
-	try {
-		// check if the given book's ISBN exists in the database
-		client.query(DB_QUERY, [book.isbn], function(err, result) {
-			if (err) {
-				return console.error('DB query error:', err);
-			} else if (result.rows.length > 0) {
-				// we've tweeted this book in the past
-				console.log(book.title + " has already been tweeted");
-				recentISBNs.push(book.isbn);
-				parseAllBooks(); // restart
-			} else {
-				// book has never been tweeted before, proceed
-				console.log(book.title + " has never been tweeted");
-				getThumbnailImage(book.thumbnail);
-			}
-		});
-	} catch (e) {
-		console.log("DB query error:", e.toString());
-	}
-}
-
-function insertBookDB(book) {
-	try {
-		// add the given book's ISBN to the database
-		client.query(DB_INSERT, [book.isbn], function(err, result) {
-			if (err) return console.error('DB insert error:', err);
-			console.log("Book successfully added to database.");
-			dbInsertDone = true;
-			if (postTweetDone) process.exit(0);
-		});
-	} catch (e) {
-		console.log("DB insert error:", e.toString());
 	}
 }
 
@@ -574,5 +508,5 @@ function isNotEnglish(text) {
 	return false;
 }
 
-// start the application by initializing the db connection
-initDB();
+// start the application
+waitToBegin()();
