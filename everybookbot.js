@@ -509,4 +509,4 @@ function isNotEnglish(text) {
 }
 
 // start the application
-waitToBegin()();
+waitToBegin();
