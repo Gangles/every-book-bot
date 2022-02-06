@@ -84,16 +84,17 @@ var MAX_ATTEMPTS = 35;
 var DO_TWEET = true;
 
 function waitToBegin() {
-	// schedule tweet at :30 every 2 hours
+	// schedule tweet at :30 every 8 hours
 	var d = new Date();
 	var timeout = 60 - d.getSeconds();
-	if (d.getHours() % 2 == 1)
+	hours = d.getHours() % 8;
+	if (hours == 0)
 		if (d.getMinutes() < 30)
 			timeout += (30 - 1 - d.getMinutes()) * 60;
 		else
-			timeout += (150 - 1 - d.getMinutes()) * 60;
+			timeout += (510 - 1 - d.getMinutes()) * 60;
 	else
-		timeout += (90 - 1 - d.getMinutes()) * 60;
+		timeout += (hours * 60 - 1 - d.getMinutes()) * 60;
 	if (!DO_TWEET) timeout = 1; // debugging
 
 	// heroku scheduler runs every 10 minutes
