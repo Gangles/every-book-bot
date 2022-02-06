@@ -86,6 +86,7 @@ var DO_TWEET = true;
 function checkTime() {
 	// heroku scheduler runs every hour on :30
 	// schedule new tweet every 8 hours
+	var d = new Date();
 	var hours = d.getHours() % 8;
 	console.log("Wait " + hours + " hours for next tweet");
 	if (hours == 0 || !DO_TWEET)
