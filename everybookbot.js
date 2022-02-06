@@ -399,7 +399,6 @@ function prepareTweet() {
 		// avoid reusing these values
 		recentISBNs.push( bookToTweet.isbn );
 		recentSubjects.push( subject );
-		process.exit(0);
 	} catch (e) {
 		console.log("Tweet assembly error:", e.toString());
 	}
