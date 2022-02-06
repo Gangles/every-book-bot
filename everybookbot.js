@@ -83,25 +83,13 @@ var MAX_RESULTS = 40;
 var MAX_ATTEMPTS = 35;
 var DO_TWEET = true;
 
-function waitToBegin() {
-	// schedule tweet at :30 every 8 hours
-	var d = new Date();
-	var timeout = 60 - d.getSeconds();
-	hours = d.getHours() % 8;
-	if (hours == 0)
-		if (d.getMinutes() < 30)
-			timeout += (30 - 1 - d.getMinutes()) * 60;
-		else
-			timeout += (510 - 1 - d.getMinutes()) * 60;
-	else
-		timeout += (hours * 60 - 1 - d.getMinutes()) * 60;
-	if (!DO_TWEET) timeout = 1; // debugging
-
-	// heroku scheduler runs every 10 minutes
-	console.log("Wait " + timeout + " seconds for next tweet");
-	if (timeout < 590) {
-		setTimeout(startNewTweet, timeout * 1000);
-	}
+function checkTime() {
+	// heroku scheduler runs every hour on :30
+	// schedule new tweet every 8 hours
+	var hours = d.getHours() % 8;
+	console.log("Wait " + hours + " hours for next tweet");
+	if (hours == 0 || !DO_TWEET)
+		startNewTweet();
 	else
 		process.exit(0);
 }
@@ -509,4 +497,4 @@ function isNotEnglish(text) {
 }
 
 // start the application
-waitToBegin();
+checkTime();
